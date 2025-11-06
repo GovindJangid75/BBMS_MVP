@@ -8,7 +8,7 @@ const AdminDashboard = () => {
 
   const getDonors = async () => {
     try {
-      const { data } = await API.get('/admin/donor-list');
+      const { data } = await API.get('/donors');
       if (data?.success) {
         setData(data?.donorData);
       }
@@ -27,7 +27,8 @@ const AdminDashboard = () => {
         'Are you sure you want to delete this donor?'
       );
       if (!answer) return;
-      const { data } = await API.delete(`/admin/delete-donor/${id}`);
+      // Note: Backend doesn't have delete endpoint, may need to implement or remove this feature
+      const { data } = await API.delete(`/donors/${id}`);
       alert(data?.message);
       window.location.reload();
     } catch (error) {

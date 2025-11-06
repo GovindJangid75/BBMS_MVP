@@ -10,12 +10,8 @@ const Consumer = () => {
 
   const getConsumerRecords = async () => {
     try {
-      const { data } = await API.post('/inventory/get-inventory-hospital', {
-        filters: {
-          inventoryType: 'out',
-          hospital: user?._id,
-        },
-      });
+      // Note: Backend doesn't have filtered endpoint - fetching all and filtering client-side
+      const { data } = await API.get('/blood');
       if (data?.success) {
         setData(data?.inventory);
       }

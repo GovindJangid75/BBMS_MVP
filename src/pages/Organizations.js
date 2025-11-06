@@ -8,7 +8,8 @@ const Organizations = () => {
 
   const getOrganizations = async () => {
     try {
-      const { data } = await API.get('/inventory/get-organizations');
+      // Note: Backend doesn't have organizations endpoint - may need to implement or filter from /donors
+      const { data } = await API.get('/donors');
       if (data?.success) {
         setData(data?.organizations);
       }

@@ -8,7 +8,8 @@ const HospitalList = () => {
 
   const getHospitals = async () => {
     try {
-      const { data } = await API.get('/inventory/get-hospitals');
+      // Note: Backend doesn't have hospitals endpoint - may need to implement or filter from /donors
+      const { data } = await API.get('/donors');
       if (data?.success) {
         setData(data?.hospitals);
       }
