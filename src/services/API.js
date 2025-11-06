@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const API = axios.create({
-  baseURL: process.env.REACT_APP_BASEURL || 'https://blood-bank-management-system-qxy1.onrender.com/api',
+  baseURL: process.env.REACT_APP_BASEURL || 'https://blood-bank-management-system-qxy1.onrender.com',
 });
 
 // Ensure all API routes are directed to the deployed backend
