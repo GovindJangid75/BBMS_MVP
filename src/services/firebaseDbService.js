@@ -1,262 +1,105 @@
-// Firebase Firestore Database Service
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  query,
-  where,
-  orderBy,
-  limit,
-  serverTimestamp
-} from 'firebase/firestore';
-import { db } from '../firebaseConfig';
+import React, { useEffect, useState } from 'react';
+import Layout from '../../components/shared/Layout/Layout';
+import moment from 'moment';
+import { getDonorInventory } from '../../services/firebasedbservice';
+import { auth } from '../../firebaseConfig';
 
-// Collection names for Blood Bank Management System
-const COLLECTIONS = {
-  DONORS: 'donors',
-  BLOOD_REQUESTS: 'bloodRequests',
-  BLOOD_INVENTORY: 'bloodInventory',
-  HOSPITALS: 'hospitals',
-  BLOOD_BANKS: 'bloodBanks'
-};
+const DonorDashboard = () => {
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const currentUser = auth.currentUser;
 
-// ============= DONOR OPERATIONS =============
+  const getInventoryData = async () => {
+    try {
+      setLoading(true);
+      
+      if (!currentUser) {
+        setError('Please login to view your donations');
+        setLoading(false);
+        return;
+      }
 
-// Add new donor
-export const addDonor = async (donorData) => {
-  try {
-    const docRef = await addDoc(collection(db, COLLECTIONS.DONORS), {
-      ...donorData,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
-    return {
-      success: true,
-      id: docRef.id,
-      message: 'Donor added successfully'
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: error.message
-    };
-  }
-};
-
-// Get all donors
-export const getAllDonors = async () => {
-  try {
-    const querySnapshot = await getDocs(collection(db, COLLECTIONS.DONORS));
-    const donors = [];
-    querySnapshot.forEach((doc) => {
-      donors.push({ id: doc.id, ...doc.data() });
-    });
-    return {
-      success: true,
-      data: donors
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: error.message
-    };
-  }
-};
-
-// Get donor by ID
-export const getDonorById = async (donorId) => {
-  try {
-    const docRef = doc(db, COLLECTIONS.DONORS, donorId);
-    const docSnap = await getDoc(docRef);
-    
-    if (docSnap.exists()) {
-      return {
-        success: true,
-        data: { id: docSnap.id, ...docSnap.data() }
-      };
-    } else {
-      return {
-        success: false,
-        error: 'Donor not found'
-      };
+      // Use the service function to get donor's inventory
+      const result = await getDonorInventory(currentUser.uid);
+      
+      if (result.success) {
+        setData(result.data);
+        setError('');
+      } else {
+        setError(result.error || 'Failed to load donations');
+      }
+    } catch (error) {
+      console.error('Error fetching donations:', error);
+      setError('Failed to load donations. Please try again.');
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    return {
-      success: false,
-      error: error.message
-    };
-  }
+  };
+
+  useEffect(() => {
+    getInventoryData();
+  }, []);
+
+  return (
+    <Layout>
+      <div className="container mt-4">
+        <h3>Donor Dashboard - Recent Donations</h3>
+        
+        {error && (
+          <div className="alert alert-danger mt-3" role="alert">
+            {error}
+          </div>
+        )}
+
+        {loading ? (
+          <div className="text-center mt-5">
+            <div className="spinner-border text-primary" role="status">
+              <span className="visually-hidden">Loading...</span>
+            </div>
+          </div>
+        ) : (
+          <>
+            {data.length === 0 ? (
+              <div className="alert alert-info mt-4">
+                No donation records found. Make your first donation today!
+              </div>
+            ) : (
+              <div className="table-responsive mt-4">
+                <table className="table table-striped">
+                  <thead>
+                    <tr>
+                      <th scope="col">Blood Group</th>
+                      <th scope="col">Inventory Type</th>
+                      <th scope="col">Quantity (ML)</th>
+                      <th scope="col">Email</th>
+                      <th scope="col">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.map((record) => (
+                      <tr key={record.id}>
+                        <td>{record.bloodGroup}</td>
+                        <td>{record.inventoryType || 'in'}</td>
+                        <td>{record.quantity}</td>
+                        <td>{record.email || currentUser?.email}</td>
+                        <td>
+                          {record.createdAt 
+                            ? moment(record.createdAt.toDate()).format('DD/MM/YYYY hh:mm A')
+                            : 'N/A'
+                          }
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </Layout>
+  );
 };
 
-// Update donor
-export const updateDonor = async (donorId, donorData) => {
-  try {
-    const docRef = doc(db, COLLECTIONS.DONORS, donorId);
-    await updateDoc(docRef, {
-      ...donorData,
-      updatedAt: serverTimestamp()
-    });
-    return {
-      success: true,
-      message: 'Donor updated successfully'
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: error.message
-    };
-  }
-};
-
-// Delete donor
-export const deleteDonor = async (donorId) => {
-  try {
-    await deleteDoc(doc(db, COLLECTIONS.DONORS, donorId));
-    return {
-      success: true,
-      message: 'Donor deleted successfully'
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: error.message
-    };
-  }
-};
-
-// ============= BLOOD REQUEST OPERATIONS =============
-
-// Add blood request
-export const addBloodRequest = async (requestData) => {
-  try {
-    const docRef = await addDoc(collection(db, COLLECTIONS.BLOOD_REQUESTS), {
-      ...requestData,
-      status: 'pending',
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
-    return {
-      success: true,
-      id: docRef.id,
-      message: 'Blood request created successfully'
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: error.message
-    };
-  }
-};
-
-// Get all blood requests
-export const getAllBloodRequests = async () => {
-  try {
-    const querySnapshot = await getDocs(collection(db, COLLECTIONS.BLOOD_REQUESTS));
-    const requests = [];
-    querySnapshot.forEach((doc) => {
-      requests.push({ id: doc.id, ...doc.data() });
-    });
-    return {
-      success: true,
-      data: requests
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: error.message
-    };
-  }
-};
-
-// Update blood request status
-export const updateBloodRequestStatus = async (requestId, status) => {
-  try {
-    const docRef = doc(db, COLLECTIONS.BLOOD_REQUESTS, requestId);
-    await updateDoc(docRef, {
-      status: status,
-      updatedAt: serverTimestamp()
-    });
-    return {
-      success: true,
-      message: 'Request status updated successfully'
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: error.message
-    };
-  }
-};
-
-// ============= BLOOD INVENTORY OPERATIONS =============
-
-// Add blood to inventory
-export const addBloodToInventory = async (inventoryData) => {
-  try {
-    const docRef = await addDoc(collection(db, COLLECTIONS.BLOOD_INVENTORY), {
-      ...inventoryData,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
-    return {
-      success: true,
-      id: docRef.id,
-      message: 'Blood added to inventory'
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: error.message
-    };
-  }
-};
-
-// Get inventory by blood group
-export const getInventoryByBloodGroup = async (bloodGroup) => {
-  try {
-    const q = query(
-      collection(db, COLLECTIONS.BLOOD_INVENTORY),
-      where('bloodGroup', '==', bloodGroup)
-    );
-    const querySnapshot = await getDocs(q);
-    const inventory = [];
-    querySnapshot.forEach((doc) => {
-      inventory.push({ id: doc.id, ...doc.data() });
-    });
-    return {
-      success: true,
-      data: inventory
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: error.message
-    };
-  }
-};
-
-// Get all inventory
-export const getAllInventory = async () => {
-  try {
-    const querySnapshot = await getDocs(collection(db, COLLECTIONS.BLOOD_INVENTORY));
-    const inventory = [];
-    querySnapshot.forEach((doc) => {
-      inventory.push({ id: doc.id, ...doc.data() });
-    });
-    return {
-      success: true,
-      data: inventory
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: error.message
-    };
-  }
-};
-
-export { COLLECTIONS };
+export default DonorDashboard;
