@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { useDispatch } from 'react-redux';
-import { registerUser } from '../../redux/features/auth/authActions';
+import { Link, useNavigate } from 'react-router-dom';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
+import { auth, db } from '../../firebaseConfig';
 import '../../styles/Form.css';
 
 const Register = () => {
@@ -14,18 +15,29 @@ const Register = () => {
   const [website, setWebsite] = useState('');
   const [address, setAddress] = useState('');
   const [phone, setPhone] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const dispatch = useDispatch();
+  const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    setError('');
+
     try {
+      // Create user in Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // Prepare user data for Firestore
       const userData = {
         role,
         email,
-        password,
         phone,
         address,
+        createdAt: new Date().toISOString(),
+        uid: user.uid,
       };
 
       if (role === 'donor') {
@@ -38,9 +50,16 @@ const Register = () => {
         userData.website = website;
       }
 
-      dispatch(registerUser(userData));
+      // Save user data to Firestore
+      await setDoc(doc(db, 'users', user.uid), userData);
+
+      // Navigate to appropriate page after successful registration
+      navigate('/');
     } catch (error) {
-      console.log(error);
+      console.error('Registration error:', error);
+      setError(error.message || 'Failed to register. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -51,6 +70,12 @@ const Register = () => {
           <div className="form-header">
             <h1>🩸 Blood Bank Register</h1>
           </div>
+
+          {error && (
+            <div className="alert alert-danger" role="alert">
+              {error}
+            </div>
+          )}
 
           <div className="mb-3">
             <div className="form-check form-check-inline">
@@ -220,8 +245,8 @@ const Register = () => {
             />
           </div>
 
-          <button type="submit" className="btn btn-primary w-100">
-            Register
+          <button type="submit" className="btn btn-primary w-100" disabled={loading}>
+            {loading ? 'Registering...' : 'Register'}
           </button>
           <div className="mt-3 text-center">
             Already have an account? <Link to="/login">Login</Link>
